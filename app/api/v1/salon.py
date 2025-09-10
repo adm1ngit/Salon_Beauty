@@ -1,12 +1,7 @@
-# app/api/v1/salon.py
-
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-
-# ✅ to'g'ri import
 from app.core.security import get_db
-# ✅ token tekshiruvi (sendagi security.py ichida bo'lishi kerak)
 from app.core.security import get_current_user
 
 # Schemas: barchasi bitta schemas/salon.py ichida

@@ -10,6 +10,7 @@ class GenderEnum(str, Enum):
 # ---- CREATE ----
 class ClientCreate(BaseModel):
     phone: str
+    password: str
     name: Optional[str] = None
     birth_date: Optional[date] = None
     gender: Optional[GenderEnum] = None
@@ -47,4 +48,4 @@ class ClientResponse(BaseModel):
     last_login: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True 
