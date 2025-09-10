@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
+from app.models import client, salon, service, booking, review, chat
+from typing import Generator
 
 # 🔹 Engine
 engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
@@ -9,12 +11,7 @@ engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-
-# Import models here so Alembic sees them
-from app.models import client, salon, service, booking, review, chat
-
-# 🔹 FastAPI dependency
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db

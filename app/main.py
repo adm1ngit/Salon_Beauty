@@ -3,9 +3,13 @@ from app.api.v1 import auth, client, booking, subscriptions, salon
 from app.api.v1 import payments as click
 from app.api.v1 import subscriptions
 from starlette.middleware.cors import CORSMiddleware
+from app.db.init_db import init_db
 
 app = FastAPI(title="Beauty App")
-
+@app.on_event("startup")
+def on_startup():
+    init_db()
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], allow_credentials=True,

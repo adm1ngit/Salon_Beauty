@@ -14,7 +14,6 @@ class Client(Base):
     id = Column(Integer, primary_key=True, index=True)
     phone = Column(String(20), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=True)
-    email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String(100), nullable=False)
     birth_date = Column(Date, nullable=True)
     gender = Column(Enum(GenderEnum), nullable=True)

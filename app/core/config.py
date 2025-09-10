@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     DATABASE_URL: str
+    ESKIIZ_LOGIN: str
+    ESKIIZ_PASSWORD: str
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
