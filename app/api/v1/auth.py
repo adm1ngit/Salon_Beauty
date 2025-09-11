@@ -11,6 +11,8 @@ from passlib.context import CryptContext
 from datetime import datetime
 from app.schemas.auth import PhoneLogin
 from dotenv import load_dotenv
+import time
+from datetime import timedelta
 
 load_dotenv()
 
@@ -67,7 +69,11 @@ def send_sms(phone: str, message: str):
 @router.post("/send_otp")
 def send_otp(data: PhoneRequest):
     otp = str(random.randint(100000, 999999))
-    OTP_STORE[data.phone] = {"otp": otp, "password": data.password}  # 🔹 parolni vaqtincha saqlaymiz
+    OTP_STORE[data.phone] = {
+        "otp": otp,
+        "password": data.password,
+        "created_at": datetime.utcnow()
+    }
 
     message = f"Freya mobil ilovasiga ro‘yxatdan o‘tish uchun tasdiqlash kodi: {otp}"
     
@@ -76,15 +82,28 @@ def send_otp(data: PhoneRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    return {"detail": "OTP yuborildi"}
+    return {"detail": "OTP yuborildi, 1 daqiqa davomida amal qiladi."}
 
 
 @router.post("/verify_otp")
 def verify_otp(data: VerifyOtpRequest, db: Session = Depends(get_db)):
     stored = OTP_STORE.get(data.phone)
-    if not stored or stored["otp"] != data.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
 
+    if not stored:
+        raise HTTPException(status_code=400, detail="OTP topilmadi yoki qaytadan yuboring")
+
+    # 🔹 Expire check (1 daqiqa = 60 sekund)
+    expire_time = stored["created_at"] + timedelta(minutes=1)
+    if datetime.utcnow() > expire_time:
+        del OTP_STORE[data.phone]
+        raise HTTPException(status_code=400, detail="OTP muddati tugagan. Qayta yuborishni so‘rang.")
+
+    if stored["otp"] != data.otp:
+        raise HTTPException(status_code=400, detail="Noto‘g‘ri OTP")
+
+    del OTP_STORE[data.phone]
+
+    # Foydalanuvchi mavjudligini tekshiramiz
     user = db.query(User).filter(User.phone == data.phone).first()
     if not user:
         hashed_password = get_password_hash(stored["password"])
@@ -95,6 +114,29 @@ def verify_otp(data: VerifyOtpRequest, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user_id": user.id}
+
+@router.post("/resend_otp")
+def resend_otp(data: PhoneRequest):
+    if data.phone in OTP_STORE:
+        del OTP_STORE[data.phone]
+
+    # Yangi OTP yaratish
+    otp = str(random.randint(100000, 999999))
+    OTP_STORE[data.phone] = {
+        "otp": otp,
+        "password": data.password, 
+        "created_at": datetime.utcnow()
+    }
+
+    message = f"Freya mobil ilovasiga tasdiqlash kodi (yangi): {otp}"
+
+    try:
+        send_sms(data.phone, message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"detail": "Yangi OTP yuborildi, 1 daqiqa davomida amal qiladi."}
+
 
 
 # ====== Parol xeshlash ======
@@ -136,3 +178,4 @@ def login_phone(data: PhoneLogin, db: Session = Depends(get_db)):
             "cashback_balance": user.cashback_balance,
         }
     }
+

@@ -3,8 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.core.security import get_db
 from app.core.security import get_current_user
-
-# Schemas: barchasi bitta schemas/salon.py ichida
 from app.schemas.salon import (
     SalonCreate, SalonUpdate, SalonOut,
     MasterCreate, MasterUpdate, MasterOut,

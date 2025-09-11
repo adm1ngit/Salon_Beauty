@@ -1,4 +1,3 @@
-# app/schemas/salon.py
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 

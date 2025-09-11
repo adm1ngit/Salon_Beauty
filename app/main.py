@@ -4,6 +4,7 @@ from app.api.v1 import payments as click
 from app.api.v1 import subscriptions
 from starlette.middleware.cors import CORSMiddleware
 from app.db.init_db import init_db
+from app.core.utils import router as forgot_password_router
 
 app = FastAPI(title="Beauty App")
 @app.on_event("startup")
@@ -22,5 +23,6 @@ app.include_router(client.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(salon.router, prefix="/api/v1/salons", tags=["salons"])
 app.include_router(booking.router, prefix="/api/v1/bookings", tags=["bookings"])
 app.include_router(click.router, prefix="/api/v1/payments", tags=["click"])
+app.include_router(forgot_password_router, prefix="/api/v1/forgot_password", tags=["forgot_password"])
 
 app.include_router(subscriptions.router, prefix="/api/v1/subscriptions", tags=["subscriptions"])
