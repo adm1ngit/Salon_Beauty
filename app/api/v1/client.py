@@ -9,6 +9,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 from app.schemas.client import ClientResponse
+from app.models.client import Client
 router = APIRouter()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -30,9 +31,10 @@ class UpdateClientResponse(BaseModel):
 def update_profile(
     update: UpdateClientRequest,
     db: Session = Depends(get_db),
-    current_user: ClientResponse = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
-    user = db.query(UpdateClientRequest).filter(UpdateClientRequest.id == current_user.id).first()
+    # 🔹 ORM model orqali query
+    user = db.query(Client).filter(Client.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

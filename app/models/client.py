@@ -16,6 +16,7 @@ class Client(Base):
     name = Column(String(100), nullable=True)
     password = Column(String(100), nullable=False)
     birth_date = Column(Date, nullable=True)
+    profile_picture = Column(String, nullable=True)
     gender = Column(Enum(GenderEnum), nullable=True)
     district = Column(String, nullable=True)
     city = Column(String, nullable=True)
