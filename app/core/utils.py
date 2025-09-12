@@ -16,32 +16,32 @@ class PhoneRequest(BaseModel):
     phone: str
 
 class VerifyOtpRequest(BaseModel):
-    phone: str
     otp: str
 
 class ResetPasswordRequest(BaseModel):
     new_password: str
-    token: str
+    confirm_password: str
 
 
-# 🔹 Temporary OTP cache (faqat 1 daqiqa)
 OTP_STORE = {}
 
 
 # STEP 1. OTP yuborish
-@router.post("/send_otp")
+@router.post("/send_forgot_password_otp")
 def send_forgot_password_otp(data: PhoneRequest, db: Session = Depends(get_db)):
     user = db.query(Client).filter(Client.phone == data.phone).first()
     if not user:
         raise HTTPException(status_code=404, detail="Bunday telefon raqam ro‘yxatdan o‘tmagan")
 
-    otp = str(random.randint(100000, 999999))
     OTP_STORE[data.phone] = {
-        "otp": otp,
+        "otp": str(random.randint(100000, 999999)),
         "created_at": datetime.utcnow(),
+        "expire_at": datetime.utcnow() + timedelta(minutes=1),
+        "verified": False
     }
 
-    message = f"Freya ilovasida parolni tiklash uchun tasdiqlash kodi: {otp}"
+    message = f"Freya ilovasida parolni tiklash uchun tasdiqlash kodi: {{code}}"
+
     try:
         send_sms(data.phone, message)
     except Exception as e:
@@ -51,55 +51,53 @@ def send_forgot_password_otp(data: PhoneRequest, db: Session = Depends(get_db)):
 
 
 # STEP 2. OTP ni tekshirish va reset_token yaratish (JWT)
-@router.post("/verify_otp")
+@router.post("/verify_forgot_password_otp")
 def verify_forgot_password_otp(data: VerifyOtpRequest):
     stored = OTP_STORE.get(data.phone)
 
     if not stored:
         raise HTTPException(status_code=400, detail="OTP topilmadi yoki qayta yuboring")
 
-    expire_time = stored["created_at"] + timedelta(minutes=1)
-    if datetime.utcnow() > expire_time:
+    if datetime.utcnow() > stored["expire_at"]:
         del OTP_STORE[data.phone]
-        raise HTTPException(status_code=400, detail="OTP muddati tugagan")
+        raise HTTPException(status_code=400, detail="OTP muddati tugagan, qayta yuboring.")
 
     if stored["otp"] != data.otp:
         raise HTTPException(status_code=400, detail="Noto‘g‘ri OTP")
 
-    # ✅ OTP tug‘ri → JWT reset_token yaratamiz
-    reset_payload = {
-        "sub": data.phone,
-        "purpose": "forgot_password",
-        "exp": datetime.utcnow() + timedelta(minutes=5)  # 5 daqiqa amal qiladi
-    }
-    reset_token = jwt.encode(reset_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-    # OTP ni o‘chiramiz (faqat token qolsin)
-    del OTP_STORE[data.phone]
-
-    return {"reset_token": reset_token, "detail": "OTP tasdiqlandi. Endi parolni yangilash mumkin."}
+    stored["verified"] = True
+    return {"detail": "OTP muvaffaqiyatli tasdiqlandi."}
 
 
 # STEP 3. Yangi parol o‘rnatish (JWT reset_token orqali)
 @router.post("/reset_password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(data.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        phone = payload.get("sub")
-        purpose = payload.get("purpose")
+    # OTP_STORE dan verified userni topamiz
+    verified_phone = None
+    for phone, info in OTP_STORE.items():
+        if info.get("verified"):
+            # 🔹 Expire tekshirishni reset bosqichida ham qilamiz
+            if datetime.utcnow() > info["expire_at"]:
+                del OTP_STORE[phone]
+                raise HTTPException(status_code=400, detail="OTP muddati tugagan, qayta yuboring.")
+            verified_phone = phone
+            break
 
-        if purpose != "forgot_password":
-            raise HTTPException(status_code=400, detail="Noto‘g‘ri token")
+    if not verified_phone:
+        raise HTTPException(status_code=400, detail="Avval OTP ni tasdiqlash kerak")
 
-    except Exception:
-        raise HTTPException(status_code=400, detail="Reset token yaroqsiz yoki muddati tugagan")
+    if data.new_password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Parollar mos emas")
 
-    user = db.query(Client).filter(Client.phone == phone).first()
+    user = db.query(Client).filter(Client.phone == verified_phone).first()
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
 
+    # 🔑 Parolni yangilaymiz
     user.password = get_password_hash(data.new_password)
-    db.add(user)
     db.commit()
+
+    # OTP ishlatilib bo‘ldi → o‘chiramiz
+    del OTP_STORE[verified_phone]
 
     return {"detail": "Parol muvaffaqiyatli yangilandi"}
