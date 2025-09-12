@@ -5,9 +5,51 @@ from app.db.session import get_db
 from app.schemas.client import ClientUpdate, ClientResponse
 from app.crud import client as crud_client
 from app.core.security import get_current_user
-
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from typing import Optional
+from app.schemas.client import ClientResponse
 router = APIRouter()
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class UpdateClientRequest(BaseModel):
+    name: Optional[str] = None
+    profile_picture: Optional[str] = None
+    password: Optional[str] = None
+
+class UpdateClientResponse(BaseModel):
+    phone: str
+    name: Optional[str]
+    profile_picture: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+@router.put("/profile", response_model=UpdateClientResponse)
+def update_profile(
+    update: UpdateClientRequest,
+    db: Session = Depends(get_db),
+    current_user: ClientResponse = Depends(get_current_user)
+):
+    user = db.query(UpdateClientRequest).filter(UpdateClientRequest.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Ma'lumotlarni yangilash
+    if update.name is not None:
+        user.name = update.name
+
+    if update.profile_picture is not None:
+        user.profile_picture = update.profile_picture
+
+    if update.password is not None:
+        user.password = pwd_context.hash(update.password)
+
+    db.commit()
+    db.refresh(user)
+
+    return user
 
 # READ all
 @router.get("/", response_model=List[ClientResponse])

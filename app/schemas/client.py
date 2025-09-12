@@ -27,8 +27,6 @@ class ClientUpdate(BaseModel):
     city: Optional[str] = None
     interests: Optional[List[str]] = None
     is_active: Optional[bool] = None
-    is_premium: Optional[bool] = None
-    cashback_balance: Optional[int] = None
     last_login: Optional[datetime] = None
 
 # ---- RESPONSE ----
@@ -49,3 +47,4 @@ class ClientResponse(BaseModel):
 
     class Config:
         from_attributes = True 
+
