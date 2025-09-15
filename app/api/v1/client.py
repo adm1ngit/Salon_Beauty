@@ -53,6 +53,20 @@ def update_profile(
 
     return user
 
+
+
+@router.get("/me", response_model=ClientResponse)
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    user = db.query(Client).filter(Client.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+
 # READ all
 @router.get("/", response_model=List[ClientResponse])
 def read_clients(
